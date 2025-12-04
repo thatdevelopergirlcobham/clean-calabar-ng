@@ -6,8 +6,8 @@ interface UseUserReportsReturn {
   loading: boolean
   error: string | null
   refetch: () => Promise<void>
-  createReport: (data: CreateReportInput) => Promise<Report | null>
-  updateReport: (id: string, data: UpdateReportInput) => Promise<Report | null>
+  createReport: (data: CreateReportInput) => Promise<Report>
+  updateReport: (id: string, data: UpdateReportInput) => Promise<Report>
   deleteReport: (id: string) => Promise<boolean>
   getReportById: (id: string) => Promise<Report | null>
   counts: {
@@ -40,11 +40,11 @@ export const useUserReports = (autoFetch = true): UseUserReportsReturn => {
   const fetchReports = useCallback(async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const data = await UserReportsService.getUserReports()
       setReports(data)
-      
+
       // Calculate counts
       const reportCounts = await UserReportsService.getUserReportsCount()
       setCounts(reportCounts)
@@ -59,21 +59,22 @@ export const useUserReports = (autoFetch = true): UseUserReportsReturn => {
   /**
    * Create a new report
    */
-  const createReport = useCallback(async (data: CreateReportInput): Promise<Report | null> => {
+  const createReport = useCallback(async (data: CreateReportInput): Promise<Report> => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const newReport = await UserReportsService.createUserReport(data)
-      
+
       // Refresh the reports list
       await fetchReports()
-      
+
       return newReport
     } catch (err: any) {
-      setError(err.message || 'Failed to create report')
+      const msg = err.message || 'Failed to create report'
+      setError(msg)
       console.error('Error creating report:', err)
-      return null
+      throw new Error(msg)
     } finally {
       setLoading(false)
     }
@@ -85,23 +86,24 @@ export const useUserReports = (autoFetch = true): UseUserReportsReturn => {
   const updateReport = useCallback(async (
     id: string,
     data: UpdateReportInput
-  ): Promise<Report | null> => {
+  ): Promise<Report> => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const updatedReport = await UserReportsService.updateUserReport(id, data)
-      
+
       // Update the local state
-      setReports(prev => 
+      setReports(prev =>
         prev.map(report => report.id === id ? updatedReport : report)
       )
-      
+
       return updatedReport
     } catch (err: any) {
-      setError(err.message || 'Failed to update report')
+      const msg = err.message || 'Failed to update report'
+      setError(msg)
       console.error('Error updating report:', err)
-      return null
+      throw new Error(msg)
     } finally {
       setLoading(false)
     }
@@ -113,19 +115,19 @@ export const useUserReports = (autoFetch = true): UseUserReportsReturn => {
   const deleteReport = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const success = await UserReportsService.deleteUserReport(id)
-      
+
       if (success) {
         // Remove from local state
         setReports(prev => prev.filter(report => report.id !== id))
-        
+
         // Update counts
         const reportCounts = await UserReportsService.getUserReportsCount()
         setCounts(reportCounts)
       }
-      
+
       return success
     } catch (err: any) {
       setError(err.message || 'Failed to delete report')
@@ -142,7 +144,7 @@ export const useUserReports = (autoFetch = true): UseUserReportsReturn => {
   const getReportById = useCallback(async (id: string): Promise<Report | null> => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const report = await UserReportsService.getUserReportById(id)
       return report
