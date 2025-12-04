@@ -1,0 +1,353 @@
+import React, { useState, useEffect, useCallback } from 'react'
+import { motion } from 'framer-motion'
+import {
+  CheckCircle,
+  AlertTriangle,
+  MapPin,
+  Clock,
+  // BarChart3,
+  FileText,
+  Users,
+} from 'lucide-react'
+import { useAuth } from '../../hooks/useAuth'
+import { useToast } from '../../contexts/ToastContext'
+import { getReports, updateReport } from '../../api/reports'
+import type { ReportWithProfile } from '../../api/reports'
+import { usersApi } from '../../api/users'
+import { agentsApi } from '../../api/agents'
+import LoadingSpinner from '../../components/common/LoadingSpinner'
+
+interface DashboardStats {
+  totalReports: number
+  approvedReports: number
+  pendingReports: number
+  resolvedReports: number
+  totalEvents: number
+  totalUsers: number
+  totalAgents: number
+  activeUsers: number
+}
+
+const AdminDashboard: React.FC = () => {
+  const { profile } = useAuth()
+  const { addToast } = useToast()
+
+  const [stats, setStats] = useState<DashboardStats>({
+    totalReports: 0,
+    approvedReports: 0,
+    pendingReports: 0,
+    resolvedReports: 0,
+    totalEvents: 0,
+    totalUsers: 0,
+    totalAgents: 0,
+    activeUsers: 0,
+  })
+  const [recentReports, setRecentReports] = useState<ReportWithProfile[]>([])
+  const [members, setMembers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const loadDashboardData = useCallback(async () => {
+    setLoading(true)
+    try {
+      // Load each set independently to avoid failing the whole dashboard
+      const [allReports, usersResponse, agentsResponse] = await Promise.all([
+        getReports().catch(() => []),
+        usersApi.getAllUsers().catch(() => []),
+        agentsApi.getAvailableAgents().catch(() => []),
+      ])
+
+      const pendingReports = allReports.filter(r => r.status === 'pending')
+      const approvedReports = allReports.filter(r => r.status === 'approved')
+      const resolvedReports = allReports.filter(r => r.status === 'resolved')
+
+      setStats({
+        totalReports: allReports.length,
+        approvedReports: approvedReports.length,
+        pendingReports: pendingReports.length,
+        resolvedReports: resolvedReports.length,
+        totalEvents: 0,
+        totalUsers: usersResponse.length,
+        totalAgents: agentsResponse.length,
+        activeUsers: usersResponse.filter(u => u.role === 'user').length,
+      })
+
+      setRecentReports(pendingReports.slice(0, 5))
+      setMembers(usersResponse)
+    } catch {
+      addToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to load dashboard data. Please try again.',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [addToast])
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [loadDashboardData])
+
+  const handleApproveReport = async (reportId: string) => {
+    try {
+      await updateReport(reportId, { status: 'approved' })
+      setRecentReports((prev: ReportWithProfile[]) =>
+        prev.map((r: ReportWithProfile) =>
+          r.id === reportId ? { ...r, status: 'approved' } as ReportWithProfile : r
+        )
+      )
+      addToast({
+        type: 'success',
+        title: 'Success',
+        message: 'Report approved successfully.',
+      })
+    } catch (error) {
+      console.error('Error approving report:', error)
+      addToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to approve report. Please try again.',
+      })
+    }
+  }
+
+  const handleRejectReport = async (reportId: string) => {
+    try {
+      await updateReport(reportId, { status: 'rejected' })
+      setRecentReports((prev: ReportWithProfile[]) =>
+        prev.filter((r: ReportWithProfile) => r.id !== reportId)
+      )
+      addToast({
+        type: 'success',
+        title: 'Success',
+        message: 'Report rejected successfully.',
+      })
+    } catch (error) {
+      console.error('Error rejecting report:', error)
+      addToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to reject report. Please try again.',
+      })
+    }
+  }
+
+  const kpiCards = [
+    {
+      title: 'Total Reports',
+      value: stats.totalReports,
+      change: '+12%',
+      icon: FileText,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+    },
+    {
+      title: 'Approved Reports',
+      value: stats.approvedReports,
+      change: '+8%',
+      icon: CheckCircle,
+      color: 'text-green-600',
+      bgColor: 'bg-green-50',
+    },
+    {
+      title: 'Pending Reviews',
+      value: stats.pendingReports,
+      change: '-5%',
+      icon: AlertTriangle,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+    },
+    {
+      title: 'Active Users',
+      value: stats.activeUsers,
+      change: '+15%',
+      icon: Users,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <LoadingSpinner className="h-12 w-12 mx-auto" />
+      </div>
+    )
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="p-6"
+    >
+      {/* Header */}
+      <h1 className="font-heading font-bold text-3xl text-gray-900 mb-2">
+        Admin Dashboard
+      </h1>
+      <div className="flex items-center justify-between mb-8 gap-3 flex-wrap">
+        <p className="text-gray-600">
+          Welcome back, {profile?.full_name}! Here's an overview of your platform.
+        </p>
+        <button
+          onClick={loadDashboardData}
+          className="btn-outline"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {kpiCards.map((kpi, i) => (
+          <motion.div
+            key={kpi.title}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: 0.1 * i }}
+            className="card hover:shadow-lg transition-shadow"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">{kpi.title}</p>
+                <p className="text-3xl font-bold text-gray-900">{kpi.value}</p>
+                <p className="text-sm text-green-600 font-medium">
+                  {kpi.change} from last month
+                </p>
+              </div>
+              <div
+                className={`w-12 h-12 ${kpi.bgColor} rounded-full flex items-center justify-center`}
+              >
+                <kpi.icon className={`w-6 h-6 ${kpi.color}`} />
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Pending Reports and Members */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <motion.div className="card">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-heading font-semibold text-xl text-gray-900">
+              Pending Reports
+            </h2>
+            <button
+              className="btn-outline text-sm"
+              onClick={() => (window.location.href = '/admin/reports')}
+            >
+              Review All
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {recentReports.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No reports yet</p>
+            ) : (
+              recentReports.map((r, i) => (
+                <motion.div
+                  key={r.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 * i }}
+                  className="flex items-start space-x-4 p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition"
+                >
+                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-gray-900 truncate">{r.title}</h3>
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {r.description}
+                    </p>
+                    <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                      <MapPin className="w-3 h-3" />
+                      <span>
+                        {typeof r.location === 'object' && r.location !== null && 'lat' in r.location && 'lng' in r.location
+                          ? `${(r.location as { lat: number; lng: number }).lat.toFixed(4)}, ${(r.location as { lat: number; lng: number }).lng.toFixed(4)}`
+                          : r.location || 'N/A'}
+                      </span>
+                      <Clock className="w-3 h-3 ml-2" />
+                      <span>{new Date(r.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleApproveReport(r.id)}
+                      className="px-3 py-1 bg-green-500 text-white text-xs rounded-full hover:bg-green-600"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleRejectReport(r.id)}
+                      className="px-3 py-1 bg-red-500 text-white text-xs rounded-full hover:bg-red-600"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </motion.div>
+        {/* Members */}
+        <motion.div className="card">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-heading font-semibold text-xl text-gray-900">
+              Members
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b text-gray-700">
+                  <th className="p-2">Name</th>
+                  <th className="p-2">Email</th>
+                  <th className="p-2">Phone</th>
+                  <th className="p-2">Created</th>
+                  <th className="p-2 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-4 text-center text-gray-500">No members</td>
+                  </tr>
+                ) : (
+                  members.map((m) => (
+                    <motion.tr key={m.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <td className="p-2">{m.full_name || 'N/A'}</td>
+                      <td className="p-2">{m.email}</td>
+                      <td className="p-2">{m.phone || '—'}</td>
+                      <td className="p-2 whitespace-nowrap">{new Date(m.created_at).toLocaleDateString()}</td>
+                      <td className="p-2 text-right">
+                        <button
+                          className="px-2 py-1 text-sm bg-red-600 text-white rounded"
+                          onClick={async () => {
+                            try {
+                              if (!confirm('Delete this user? This cannot be undone.')) return
+                              await usersApi.deleteUserProfile(m.id)
+                              setMembers(prev => prev.filter(x => x.id !== m.id))
+                              addToast({ type: 'success', title: 'Deleted', message: 'User deleted.' })
+                            } catch {
+                              addToast({ type: 'error', title: 'Error', message: 'Failed to delete user.' })
+                            }
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </motion.tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+      </div>
+    </motion.div>
+  )
+}
+
+export default AdminDashboard
