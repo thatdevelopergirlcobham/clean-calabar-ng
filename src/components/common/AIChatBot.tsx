@@ -152,11 +152,21 @@ Provide a helpful response in 2-3 sentences.`;
 const AIChatBot: React.FC = () => {
   const [isAIChatOpen, setIsAIChatOpen] = useState(false)
   const toggleAIChat = () => setIsAIChatOpen(prev => !prev)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [aiMode, setAIMode] = useState<'normal' | 'upcycle'>('normal')
+  
+  const getGreeting = (mode: 'normal' | 'upcycle'): Message => ({
+    id: `bot-greeting-${Date.now()}`,
+    type: 'bot',
+    content: mode === 'normal'
+      ? "Hello there! I am CleanCal Bot. I'm here to help you with waste management, recycling tips, and keeping our community clean. You can ask me anything about these topics!"
+      : "Hello there! I am your Upcycling Expert. I can help you turn your waste into beautiful and useful items. Tell me what materials you have, and I'll give you some creative ideas!",
+    timestamp: new Date(),
+  })
+
+  const [messages, setMessages] = useState<Message[]>([getGreeting('normal')])
   const [isExpanded, setIsExpanded] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [aiMode, setAIMode] = useState<'normal' | 'upcycle'>('normal')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Scroll to bottom when new messages arrive
@@ -211,7 +221,7 @@ const AIChatBot: React.FC = () => {
   }
 
   const clearChat = () => {
-    setMessages([])
+    setMessages([getGreeting(aiMode)])
   }
 
   if (!isAIChatOpen) {
@@ -246,8 +256,9 @@ const AIChatBot: React.FC = () => {
           <select
             value={aiMode}
             onChange={(e) => {
-              setAIMode(e.target.value as 'normal' | 'upcycle');
-              clearChat(); // Clear chat on mode switch
+              const newMode = e.target.value as 'normal' | 'upcycle';
+              setAIMode(newMode);
+              setMessages([getGreeting(newMode)]);
             }}
             className="text-xs border border-gray-300 rounded px-1 py-1 mr-2 focus:outline-none focus:border-primary"
           >

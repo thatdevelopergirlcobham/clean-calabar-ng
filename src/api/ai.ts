@@ -1,4 +1,4 @@
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyA4he8tqWSwDBeAfszU62-Nw-hqwpmwu6w";
+const GEMINI_API_KEY = "AIzaSyCu4ZdjhjTS0D4ed-_jJms34wIxe6QdleU";
 
 // We will try these models in order until one works
 const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-flash-latest"];

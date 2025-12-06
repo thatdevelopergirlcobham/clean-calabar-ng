@@ -2,40 +2,40 @@ import type { Recyclable, RecyclableOrder, CreateRecyclableInput, CreateOrderInp
 
 // Dummy data for recyclables
 const DUMMY_RECYCLABLES: Recyclable[] = [
-    {
-        id: 'dummy-1',
-        user_id: 'user-1',
-        title: '50kg of PET Bottles',
-        description: 'Clean, sorted PET bottles ready for pickup. Mostly water bottles.',
-        category: 'plastic',
-        bottle_size: '50cl',
-        quantity: 50,
-        price_per_unit: 100,
-        total_price: 5000,
-        image_url: 'https://images.unsplash.com/photo-1605600659908-0ef719419d41?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-        location: { lat: 4.9757, lng: 8.3417 }, // Calabar coordinates
-        status: 'available',
-        is_negotiable: true,
-        contact_phone: '08012345678',
-        created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-        updated_at: new Date(Date.now() - 86400000).toISOString(),
-        user_profiles: {
-            full_name: 'John Doe',
-            email: 'john@example.com',
-            avatar_url: 'https://ui-avatars.com/api/?name=John+Doe',
-            phone: '08012345678'
-        }
-    },
+    // {
+    //     id: 'dummy-1',
+    //     user_id: 'user-1',
+    //     title: '50kg of PET Bottles',
+    //     description: 'Clean, sorted PET bottles ready for pickup. Mostly water bottles.',
+    //     category: 'plastic',
+    //     bottle_size: '50cl',
+    //     quantity: 50,
+    //     price_per_unit: 100,
+    //     total_price: 5000,
+    //     image_url: 'https://images.unsplash.com/photo-1605600659908-0ef719419d41?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    //     location: { lat: 4.9757, lng: 8.3417 }, // Calabar coordinates
+    //     status: 'available',
+    //     is_negotiable: true,
+    //     contact_phone: '08012345678',
+    //     created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+    //     updated_at: new Date(Date.now() - 86400000).toISOString(),
+    //     user_profiles: {
+    //         full_name: 'John Doe',
+    //         email: 'john@example.com',
+    //         avatar_url: 'https://ui-avatars.com/api/?name=John+Doe',
+    //         phone: '08012345678'
+    //     }
+    // },
     {
         id: 'dummy-2',
         user_id: 'user-2',
-        title: 'Glass Bottles Collection',
+        title: 'Plastics Bottles Collection',
         description: 'Mixed glass bottles, mostly green and brown.',
-        category: 'glass',
+        category: 'plastic',
         quantity: 100,
         price_per_unit: 50,
         total_price: 5000,
-        image_url: 'https://images.unsplash.com/photo-1506917728037-b6af011508e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+        image_url: 'https://eupegypt.com/wp-content/uploads/2024/12/pet-plastic-bottles.jpg',
         location: { lat: 4.9800, lng: 8.3500 },
         status: 'available',
         is_negotiable: false,
@@ -43,33 +43,10 @@ const DUMMY_RECYCLABLES: Recyclable[] = [
         created_at: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
         updated_at: new Date(Date.now() - 172800000).toISOString(),
         user_profiles: {
-            full_name: 'Jane Smith',
-            email: 'jane@example.com',
+            full_name: 'Dawn Cobham',
+            email: 'Cobham@gmail.com',
             avatar_url: 'https://ui-avatars.com/api/?name=Jane+Smith',
             phone: '08087654321'
-        }
-    },
-    {
-        id: 'dummy-3',
-        user_id: 'user-3',
-        title: 'Scrap Metal - Aluminum',
-        description: 'Old aluminum window frames and cans.',
-        category: 'metal',
-        quantity: 30,
-        price_per_unit: 500,
-        total_price: 15000,
-        image_url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-        location: { lat: 4.9600, lng: 8.3300 },
-        status: 'available',
-        is_negotiable: true,
-        contact_phone: '08055555555',
-        created_at: new Date(Date.now() - 43200000).toISOString(), // 12 hours ago
-        updated_at: new Date(Date.now() - 43200000).toISOString(),
-        user_profiles: {
-            full_name: 'Mike Johnson',
-            email: 'mike@example.com',
-            avatar_url: 'https://ui-avatars.com/api/?name=Mike+Johnson',
-            phone: '08055555555'
         }
     }
 ];
