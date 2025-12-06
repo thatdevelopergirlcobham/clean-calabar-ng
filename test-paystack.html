@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Paystack</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            background: #22c55e;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #16a34a;
+        }
+        .info {
+            background: #f0f9ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .success {
+            background: #efe;
+            color: #060;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Paystack Test Page</h1>
+    
+    <div class="info">
+        <h3>Test Details:</h3>
+        <p><strong>Amount:</strong> ₦10,000</p>
+        <p><strong>Email:</strong> test@example.com</p>
+        <p><strong>Test Card:</strong> 4084 0840 8408 4081</p>
+        <p><strong>CVV:</strong> 408 | <strong>PIN:</strong> 0000 | <strong>OTP:</strong> 123456</p>
+    </div>
+
+    <button onclick="testPayment()">Test Payment</button>
+
+    <div id="result"></div>
+
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <script>
+        function testPayment() {
+            const resultDiv = document.getElementById('result');
+            
+            // Check if Paystack is loaded
+            if (typeof PaystackPop === 'undefined') {
+                resultDiv.innerHTML = '<div class="error">❌ Paystack not loaded! Check your internet connection.</div>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="info">⏳ Opening payment modal...</div>';
+
+            try {
+                const handler = PaystackPop.setup({
+                    key: 'pk_live_fa0a541804703ca42042c3562e96a57e3baa71b1',
+                    email: 'test@example.com',
+                    amount: 1000000, // ₦10,000 in kobo
+                    currency: 'NGN',
+                    ref: 'TEST-' + Date.now(),
+                    callback: function(response) {
+                        resultDiv.innerHTML = `
+                            <div class="success">
+                                ✅ Payment Successful!<br>
+                                Reference: ${response.reference}
+                            </div>
+                        `;
+                        console.log('Success:', response);
+                    },
+                    onClose: function() {
+                        resultDiv.innerHTML = '<div class="info">Payment window closed</div>';
+                        console.log('Payment closed');
+                    }
+                });
+
+                handler.openIframe();
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                console.error('Error:', error);
+            }
+        }
+
+        // Check on page load
+        window.addEventListener('load', function() {
+            const resultDiv = document.getElementById('result');
+            if (typeof PaystackPop !== 'undefined') {
+                resultDiv.innerHTML = '<div class="success">✅ Paystack loaded successfully!</div>';
+            } else {
+                resultDiv.innerHTML = '<div class="error">❌ Paystack failed to load</div>';
+            }
+        });
+    </script>
+</body>
+</html>
