@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import ImageUploader from '../../components/common/ImageUploader';
 import LocationAutocomplete from '../../components/common/LocationAutocomplete';
-import { Truck, Sparkles, Clock, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
+import { Truck, Sparkles, Clock, MapPin, AlertCircle, CheckCircle, MessageCircle } from 'lucide-react';
 import { createServiceRequest } from '../../api/serviceRequests';
 
 type ServiceType = 'cleaning' | 'waste_pickup';
@@ -138,6 +138,28 @@ const HireCleaners: React.FC = () => {
           <p className="text-lg text-gray-600">
             Hire professional cleaners or schedule a fast waste pickup.
           </p>
+          
+          {/* AI Helper Banner */}
+          <div className="mt-6 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-4 max-w-2xl mx-auto">
+            <div className="flex items-center justify-center gap-3">
+              <MessageCircle className="w-6 h-6 text-green-600" />
+              <div className="text-left flex-1">
+                <p className="text-sm font-semibold text-gray-900">Need help finding the right service?</p>
+                <p className="text-xs text-gray-600">Chat with our AI assistant to get personalized recommendations!</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  // Trigger chatbot to open in hire mode
+                  const event = new CustomEvent('openAIChatInMode', { detail: { mode: 'hire' } });
+                  window.dispatchEvent(event);
+                }}
+                className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition font-medium whitespace-nowrap"
+              >
+                Ask AI
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Service Type Selection */}

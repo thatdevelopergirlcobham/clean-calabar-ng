@@ -24,6 +24,8 @@ import Logout from './pages/auth/Logout'
 import Profile from './pages/community/Profile'
 import ReportDetailPage from './pages/community/ReportDetail'
 import HireCleaners from './pages/community/HireCleaners'
+import BookingConfirmation from './pages/community/BookingConfirmation'
+import BookingSuccess from './pages/community/BookingSuccess'
 import RecyclablesMarketplace from './pages/community/RecyclablesMarketplace'
 
 // Admin Pages
@@ -68,7 +70,9 @@ const Shell: React.FC = () => {
           <Route path="/reports-map" element={<MapView />} />
           <Route path="/my-reports" element={<UserReportsManager />} />
           <Route path="/agents" element={<AgentHire />} />
-          <Route path="/hire-cleaners" element={<HireCleaners />} />
+          <Route path="/community/hire-cleaners" element={<HireCleaners />} />
+          <Route path="/community/booking-confirmation" element={<BookingConfirmation />} />
+          <Route path="/community/booking-success" element={<BookingSuccess />} />
           <Route path="/recyclables" element={<RecyclablesMarketplace />} />
           <Route
             path="/profile"

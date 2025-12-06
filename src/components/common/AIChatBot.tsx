@@ -1,165 +1,33 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { MessageCircle, X, Send, Bot, User, Minimize2, Maximize2, Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { MessageCircle, X, Send, Bot, User, Minimize2, Maximize2, Trash2, ArrowRight } from 'lucide-react'
+import { MOCK_CLEANERS } from '../../data/mockCleaners'
+import type { BookingRequest } from '../../types/booking'
+import { saveBookingToStorage, estimatePrice } from '../../utils/bookingFlow'
 
 interface Message {
   id: string
   type: 'user' | 'bot'
   content: string
   timestamp: Date
-}
-
-const GEMINI_API_KEY = "AIzaSyA4he8tqWSwDBeAfszU62-Nw-hqwpmwu6w";
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
-
-async function testGemini(prompt: string): Promise<string> {
-  try {
-    if (!GEMINI_API_KEY) {
-      throw new Error("Gemini API key is not configured.");
-    }
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 512,
-        },
-        safetySettings: [
-          {
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_HATE_SPEECH",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          }
-        ]
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Gemini error:", response.status, errText);
-      return `⚠️ Gemini API error (${response.status}): ${response.statusText}`;
-    }
-
-    const data = await response.json();
-
-    const result = (
-      data?.candidates?.[0]?.output ||
-      data?.candidates?.[0]?.outputText ||
-      data?.candidates?.[0]?.content?.[0]?.text ||
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      data?.text ||
-      data?.output ||
-      "No response text returned."
-    ).toString().trim();
-    console.log("Gemini success:", result);
-    return result;
-  } catch (error) {
-    const err = error as Error;
-    console.error("Gemini fetch error:", err);
-
-    if (err.message.includes('API key')) {
-      return "⚠️ API Key Error: Please check your Gemini API key in the environment variables.";
-    }
-    if (err.message.includes('NetworkError') || err.message.includes('Failed to fetch')) {
-      return "⚠️ Network Error: Please check your internet connection.";
-    }
-    if (err.message.includes('quota')) {
-      return "⚠️ API Quota Exceeded: Your Gemini API quota has been exceeded. Please check your Google Cloud Console.";
-    }
-    return `⚠️ API Error: ${err.message}`;
-  }
-}
-
-async function chatWithCleanCalBot(userMessage: string, mode: 'normal' | 'upcycle' = 'normal'): Promise<string> {
-  if (!GEMINI_API_KEY) {
-    // Simulation mode
-    console.log("Simulating AI response (No API Key)");
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-
-    const lowerMsg = userMessage.toLowerCase();
-
-    if (mode === 'upcycle') {
-      if (lowerMsg.includes('bottle')) return "Plastic bottles can be turned into beautiful planters or bird feeders! Would you like a step-by-step guide?";
-      if (lowerMsg.includes('paper')) return "Old newspapers can be used for papier-mâché bowls or woven baskets. It's a fun project!";
-      return "I love turning trash into treasure! Tell me what material you have (like plastic, glass, or fabric), and I'll give you an upcycling idea.";
-    }
-
-    if (lowerMsg.includes('recycle') || lowerMsg.includes('recycling')) {
-      return "Recycling is a great way to reduce waste! In Calabar, you can recycle plastics, glass, and paper. Make sure to clean your recyclables before sorting them.";
-    }
-    if (lowerMsg.includes('waste') || lowerMsg.includes('trash')) {
-      return "Proper waste disposal helps keep our community clean. Please use designated bins and consider composting organic waste.";
-    }
-    if (lowerMsg.includes('report')) {
-      return "You can report waste issues directly through this app. Just click the 'Report Issue' button and provide the details.";
-    }
-    return "I'm CleanCal Bot, here to help you with waste management. You can ask me about recycling, reporting issues, or keeping Calabar clean!";
-  }
-
-  let systemPrompt = '';
-  if (mode === 'upcycle') {
-    systemPrompt = `
-You are CleanCal Bot's Upcycling Expert.
-Your goal is to help users turn their waste materials (trash) into useful or beautiful items (treasure).
-When a user mentions a material (e.g., plastic bottles, old tires, cardboard), suggest creative DIY upcycling projects.
-Provide step-by-step instructions if asked.
-Be enthusiastic, creative, and encouraging.
-`;
-  } else {
-    systemPrompt = `
-You are CleanCal Bot, an AI assistant for a waste management app in Calabar, Nigeria called CleanCal.
-Your role is to help users with waste management, recycling, and environmental questions.
-Be direct and provide practical advice without any greeting or introduction.
-`;
-  }
-
-  const prompt = `
-${systemPrompt}
-
-User message: ${userMessage}
-
-Provide a helpful response in 2-3 sentences.`;
-
-  try {
-    return await testGemini(prompt);
-  } catch (error) {
-    console.error('Error in chatWithCleanCalBot:', error);
-    return "⚠️ Sorry, I'm having trouble connecting to the AI service. Please try again later.";
-  }
+  showBookingButton?: boolean
 }
 
 const AIChatBot: React.FC = () => {
+  const navigate = useNavigate()
   const [isAIChatOpen, setIsAIChatOpen] = useState(false)
   const toggleAIChat = () => setIsAIChatOpen(prev => !prev)
-  const [aiMode, setAIMode] = useState<'normal' | 'upcycle'>('normal')
+  const [aiMode, setAIMode] = useState<'normal' | 'upcycle' | 'hire'>('normal')
+  const [bookingData, setBookingData] = useState<Partial<BookingRequest>>({})
   
-  const getGreeting = (mode: 'normal' | 'upcycle'): Message => ({
+  const getGreeting = (mode: 'normal' | 'upcycle' | 'hire'): Message => ({
     id: `bot-greeting-${Date.now()}`,
     type: 'bot',
     content: mode === 'normal'
-      ? "Hello there! I am CleanCal Bot. I'm here to help you with waste management, recycling tips, and keeping our community clean. You can ask me anything about these topics!"
-      : "Hello there! I am your Upcycling Expert. I can help you turn your waste into beautiful and useful items. Tell me what materials you have, and I'll give you some creative ideas!",
+      ? "Hello! I'm CleanCal Bot. I can help you with waste management, recycling tips, and keeping our community clean!"
+      : mode === 'upcycle'
+      ? "Hello! I'm your Upcycling Expert. I can help you turn waste into beautiful and useful items. Tell me what materials you have!"
+      : "Hello! I'm your Cleaner Finder. Let me help you book a cleaning service or waste pickup. What do you need?\n\n• House cleaning\n• Office cleaning\n• Waste pickup\n• Or just browse services",
     timestamp: new Date(),
   })
 
@@ -169,10 +37,209 @@ const AIChatBot: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    const handleOpenChat = (e: CustomEvent) => {
+      const { mode } = e.detail;
+      if (mode && ['normal', 'upcycle', 'hire'].includes(mode)) {
+        setAIMode(mode);
+        setMessages([getGreeting(mode)]);
+        setIsAIChatOpen(true);
+        setBookingData({});
+      }
+    };
+
+    window.addEventListener('openAIChatInMode', handleOpenChat as EventListener);
+    return () => {
+      window.removeEventListener('openAIChatInMode', handleOpenChat as EventListener);
+    };
+  }, [])
+
+  const processHireMode = async (userMsg: string): Promise<Message> => {
+    const lowerMsg = userMsg.toLowerCase();
+    
+    // Step 1: Determine service type
+    if (!bookingData.serviceType) {
+      if (lowerMsg.includes('clean') && !lowerMsg.includes('waste')) {
+        const newData = { ...bookingData, serviceType: 'cleaning' as const };
+        setBookingData(newData);
+        return {
+          id: `bot-${Date.now()}`,
+          type: 'bot',
+          content: "Great! I'll help you book a cleaning service. 🧹\n\nWhere do you need the cleaning? (Please provide your address or area in Calabar)",
+          timestamp: new Date(),
+        };
+      } else if (lowerMsg.includes('waste') || lowerMsg.includes('pickup') || lowerMsg.includes('trash')) {
+        const newData = { ...bookingData, serviceType: 'waste_pickup' as const };
+        setBookingData(newData);
+        return {
+          id: `bot-${Date.now()}`,
+          type: 'bot',
+          content: "Perfect! I'll help you schedule a waste pickup. 🚛\n\nWhere should we pick up the waste? (Please provide your address or area in Calabar)",
+          timestamp: new Date(),
+        };
+      } else if (lowerMsg.includes('browse') || lowerMsg.includes('show') || lowerMsg.includes('list')) {
+        const topCleaners = [...MOCK_CLEANERS].sort((a, b) => b.rating - a.rating).slice(0, 3);
+        return {
+          id: `bot-${Date.now()}`,
+          type: 'bot',
+          content: `Here are our top-rated services:\n\n${topCleaners.map(c => 
+            `⭐ ${c.name} - ${c.rating}/5.0\n${c.specialties.join(', ')}\n${c.priceRange}`
+          ).join('\n\n')}\n\nWould you like to book one of these services?`,
+          timestamp: new Date(),
+        };
+      }
+      return {
+        id: `bot-${Date.now()}`,
+        type: 'bot',
+        content: "I can help you with:\n• House/Office cleaning 🧹\n• Waste pickup 🚛\n\nWhich service do you need?",
+        timestamp: new Date(),
+      };
+    }
+
+    // Step 2: Get location
+    if (!bookingData.location) {
+      const newData = { ...bookingData, location: userMsg };
+      setBookingData(newData);
+      return {
+        id: `bot-${Date.now()}`,
+        type: 'bot',
+        content: `Got it! ${userMsg}\n\nWhen do you need this service? (Please provide a date, e.g., "tomorrow", "Dec 10", or "next Monday")`,
+        timestamp: new Date(),
+      };
+    }
+
+    // Step 3: Get date
+    if (!bookingData.date) {
+      const newData = { ...bookingData, date: userMsg };
+      setBookingData(newData);
+      
+      if (bookingData.serviceType === 'cleaning') {
+        return {
+          id: `bot-${Date.now()}`,
+          type: 'bot',
+          content: "What's the size of the space?\n• Small (Studio/1 Bedroom)\n• Medium (2-3 Bedrooms)\n• Large (4+ Bedrooms/Office)",
+          timestamp: new Date(),
+        };
+      } else {
+        return {
+          id: `bot-${Date.now()}`,
+          type: 'bot',
+          content: "How much waste do you have?\n• Small bin (Household)\n• Large bin (Commercial)\n• Truck load (Construction/Bulk)",
+          timestamp: new Date(),
+        };
+      }
+    }
+
+    // Step 4: Get size details
+    if (bookingData.serviceType === 'cleaning' && !bookingData.spaceSize) {
+      let size: 'small' | 'medium' | 'large' = 'medium';
+      if (lowerMsg.includes('small') || lowerMsg.includes('studio')) size = 'small';
+      else if (lowerMsg.includes('large') || lowerMsg.includes('office')) size = 'large';
+      
+      const newData = { ...bookingData, spaceSize: size };
+      setBookingData(newData);
+      return {
+        id: `bot-${Date.now()}`,
+        type: 'bot',
+        content: "Is this urgent or can we schedule it normally?\n• Urgent (ASAP - 30% extra fee)\n• Standard (Scheduled time)",
+        timestamp: new Date(),
+      };
+    }
+
+    if (bookingData.serviceType === 'waste_pickup' && !bookingData.wasteSize) {
+      let size: 'small_bin' | 'large_bin' | 'truck_load' = 'small_bin';
+      if (lowerMsg.includes('large') || lowerMsg.includes('commercial')) size = 'large_bin';
+      else if (lowerMsg.includes('truck') || lowerMsg.includes('bulk')) size = 'truck_load';
+      
+      const newData = { ...bookingData, wasteSize: size };
+      setBookingData(newData);
+      return {
+        id: `bot-${Date.now()}`,
+        type: 'bot',
+        content: "Is this urgent or can we schedule it normally?\n• Urgent (ASAP - 30% extra fee)\n• Standard (Scheduled time)",
+        timestamp: new Date(),
+      };
+    }
+
+    // Step 5: Get urgency
+    if (!bookingData.urgency) {
+      const urgent = lowerMsg.includes('urgent') || lowerMsg.includes('asap') || lowerMsg.includes('now');
+      const newData = { ...bookingData, urgency: urgent ? 'urgent' as const : 'standard' as const };
+      setBookingData(newData);
+      return {
+        id: `bot-${Date.now()}`,
+        type: 'bot',
+        content: "Please provide a brief description of what you need done.",
+        timestamp: new Date(),
+      };
+    }
+
+    // Step 6: Get description
+    if (!bookingData.description) {
+      const newData = { ...bookingData, description: userMsg };
+      setBookingData(newData);
+      return {
+        id: `bot-${Date.now()}`,
+        type: 'bot',
+        content: "Great! Now I need your contact information.\n\nWhat's your full name?",
+        timestamp: new Date(),
+      };
+    }
+
+    // Step 7: Get name
+    if (!bookingData.contactName) {
+      const newData = { ...bookingData, contactName: userMsg };
+      setBookingData(newData);
+      return {
+        id: `bot-${Date.now()}`,
+        type: 'bot',
+        content: "Thanks! What's your phone number?",
+        timestamp: new Date(),
+      };
+    }
+
+    // Step 8: Get phone
+    if (!bookingData.contactPhone) {
+      const newData = { ...bookingData, contactPhone: userMsg };
+      setBookingData(newData);
+      return {
+        id: `bot-${Date.now()}`,
+        type: 'bot',
+        content: "Last one - what's your email address?",
+        timestamp: new Date(),
+      };
+    }
+
+    // Step 9: Get email and complete
+    if (!bookingData.contactEmail) {
+      const finalData = { ...bookingData, contactEmail: userMsg };
+      setBookingData(finalData);
+      
+      // Save to localStorage
+      saveBookingToStorage(finalData);
+      
+      const price = estimatePrice(finalData);
+      
+      return {
+        id: `bot-${Date.now()}`,
+        type: 'bot',
+        content: `Perfect! Here's your booking summary:\n\n📍 Location: ${finalData.location}\n📅 Date: ${finalData.date}\n${finalData.serviceType === 'cleaning' ? '🧹' : '🚛'} Service: ${finalData.serviceType === 'cleaning' ? 'Cleaning' : 'Waste Pickup'}\n💰 Estimated Price: ${price}\n\n👤 ${finalData.contactName}\n📞 ${finalData.contactPhone}\n📧 ${finalData.contactEmail}\n\nClick the button below to proceed to payment!`,
+        timestamp: new Date(),
+        showBookingButton: true,
+      };
+    }
+
+    return {
+      id: `bot-${Date.now()}`,
+      type: 'bot',
+      content: "I'm not sure what you mean. Can you rephrase that?",
+      timestamp: new Date(),
+    };
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -187,20 +254,40 @@ const AIChatBot: React.FC = () => {
 
     setMessages(prev => [...prev, userMessage])
     setInputValue('')
-
-    // Send to AI
     setIsLoading(true)
+
     try {
-      const response = await chatWithCleanCalBot(userMessage.content, aiMode)
-      const botMessage: Message = {
-        id: `bot-${Date.now()}`,
-        type: 'bot',
-        content: response,
-        timestamp: new Date(),
+      let botMessage: Message;
+
+      if (aiMode === 'hire') {
+        botMessage = await processHireMode(userMessage.content);
+      } else {
+        // Simple responses for other modes
+        await new Promise(resolve => setTimeout(resolve, 800));
+        const lowerMsg = userMessage.content.toLowerCase();
+        
+        let content = "I'm here to help! Ask me about waste management, recycling, or upcycling.";
+        
+        if (aiMode === 'upcycle') {
+          if (lowerMsg.includes('bottle')) content = "Plastic bottles can be turned into beautiful planters or bird feeders! Cut the top off, decorate it, and add soil and plants. 🌱";
+          else if (lowerMsg.includes('paper')) content = "Old newspapers can be used for papier-mâché bowls or woven baskets. It's a fun and creative project! 📰";
+          else content = "Tell me what material you have (plastic, glass, fabric, cardboard) and I'll give you creative upcycling ideas! ♻️";
+        } else {
+          if (lowerMsg.includes('recycle')) content = "Recycling is great! In Calabar, you can recycle plastics, glass, and paper. Make sure to clean items before recycling. ♻️";
+          else if (lowerMsg.includes('waste')) content = "Proper waste disposal keeps our community clean. Use designated bins and consider composting organic waste. 🗑️";
+        }
+
+        botMessage = {
+          id: `bot-${Date.now()}`,
+          type: 'bot',
+          content,
+          timestamp: new Date(),
+        };
       }
+
       setMessages(prev => [...prev, botMessage])
     } catch (error) {
-      console.error('Error sending message:', error)
+      console.error('Error:', error)
       const errorMessage: Message = {
         id: `error-${Date.now()}`,
         type: 'bot',
@@ -222,6 +309,12 @@ const AIChatBot: React.FC = () => {
 
   const clearChat = () => {
     setMessages([getGreeting(aiMode)])
+    setBookingData({})
+  }
+
+  const handleProceedToBooking = () => {
+    navigate('/community/booking-confirmation')
+    setIsAIChatOpen(false)
   }
 
   if (!isAIChatOpen) {
@@ -238,7 +331,6 @@ const AIChatBot: React.FC = () => {
 
   return (
     <div className={`fixed bottom-20 md:bottom-4 right-4 ${isExpanded ? 'w-[28rem] md:h-[36rem]' : 'w-96 md:h-[32rem]'} max-h-[calc(100vh-7rem)] bg-white rounded-2xl shadow-lg border border-gray-200 flex flex-col z-40`}>
-      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
@@ -247,93 +339,62 @@ const AIChatBot: React.FC = () => {
           <div>
             <h3 className="font-heading font-semibold text-sm">CleanCal Bot</h3>
             <p className="text-xs text-gray-500">
-              {aiMode === 'upcycle' ? 'Upcycling Expert 🎨' : 'Waste Management Assistant'}
+              {aiMode === 'hire' ? 'Cleaner Finder 🧹' : aiMode === 'upcycle' ? 'Upcycling Expert 🎨' : 'Waste Assistant'}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {/* Mode Switcher */}
           <select
             value={aiMode}
             onChange={(e) => {
-              const newMode = e.target.value as 'normal' | 'upcycle';
+              const newMode = e.target.value as 'normal' | 'upcycle' | 'hire';
               setAIMode(newMode);
               setMessages([getGreeting(newMode)]);
+              setBookingData({});
             }}
             className="text-xs border border-gray-300 rounded px-1 py-1 mr-2 focus:outline-none focus:border-primary"
           >
             <option value="normal">Assistant</option>
             <option value="upcycle">Upcycle</option>
+            <option value="hire">Hire Cleaners</option>
           </select>
 
-          <button
-            onClick={clearChat}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Clear chat"
-          >
+          <button onClick={clearChat} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Clear chat">
             <Trash2 className="w-5 h-5" />
           </button>
-          <button
-            onClick={() => setIsExpanded(v => !v)}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            title={isExpanded ? 'Minimize' : 'Expand'}
-          >
+          <button onClick={() => setIsExpanded(v => !v)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title={isExpanded ? 'Minimize' : 'Expand'}>
             {isExpanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
           </button>
-          <button
-            onClick={toggleAIChat}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Close"
-          >
+          <button onClick={toggleAIChat} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            <Bot className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Hi! I'm CleanCal Bot.</p>
-            <p className="text-xs text-gray-400 mt-1">
-              {aiMode === 'upcycle'
-                ? "I can help you turn trash into treasure! Ask me for upcycling ideas."
-                : "Ask me about recycling tips, waste sorting, or community events!"}
-            </p>
-          </div>
-        ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`flex items-start space-x-2 max-w-xs ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                  }`}
-              >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${message.type === 'user'
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-200 text-gray-600'
-                  }`}>
-                  {message.type === 'user' ? (
-                    <User className="w-3 h-3" />
-                  ) : (
-                    <Bot className="w-3 h-3" />
-                  )}
-                </div>
-                <div
-                  className={`px-3 py-2 rounded-2xl text-sm ${message.type === 'user'
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-100 text-gray-800'
-                    }`}
-                >
+        {messages.map((message) => (
+          <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`flex items-start space-x-2 max-w-xs ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${message.type === 'user' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-600'}`}>
+                {message.type === 'user' ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
+              </div>
+              <div>
+                <div className={`px-3 py-2 rounded-2xl text-sm whitespace-pre-line ${message.type === 'user' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-800'}`}>
                   {message.content}
                 </div>
+                {message.showBookingButton && (
+                  <button
+                    onClick={handleProceedToBooking}
+                    className="mt-2 w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm flex items-center justify-center gap-2"
+                  >
+                    Proceed to Payment
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
-          ))
-        )}
+          </div>
+        ))}
 
         {isLoading && (
           <div className="flex justify-start">
@@ -355,7 +416,6 @@ const AIChatBot: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
       <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200">
         <div className="flex items-end space-x-2">
           <div className="flex-1">
@@ -363,7 +423,7 @@ const AIChatBot: React.FC = () => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder={aiMode === 'upcycle' ? "Ask about upcycling ideas..." : "Ask CleanCal Bot..."}
+              placeholder={aiMode === 'hire' ? "Type your answer..." : aiMode === 'upcycle' ? "Ask about upcycling..." : "Ask CleanCal Bot..."}
               className="w-full px-3 py-2 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
               rows={1}
               style={{ minHeight: '40px', maxHeight: '80px' }}
