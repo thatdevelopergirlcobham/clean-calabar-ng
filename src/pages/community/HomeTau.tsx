@@ -14,6 +14,7 @@ import {
 import ReportModal from "../../components/community/ReportModal";
 import { useAuth } from "../../hooks/useAuth";
 import { useUserReports } from "../../hooks/useUserReports";
+import { useAI } from "../../contexts";
 import { SUPABASE_URL, restHeaders } from "../../api/supabaseClient";
 import { reverseGeocode } from "../../utils/geocoding";
 
@@ -65,10 +66,11 @@ const HomeTau: React.FC = () => {
   const [showReportModal, setShowReportModal] = useState(false);
   const { user } = useAuth();
   const { createReport } = useUserReports(false);
+  const { openAIChat } = useAI();
   const [reloadTick, setReloadTick] = useState(0);
+  const [analyticsResult, setAnalyticsResult] = useState<string | null>(null);
 
   // Filters
-  const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [sortBy, setSortBy] = useState("newest");
 
@@ -89,34 +91,34 @@ const HomeTau: React.FC = () => {
 
   /** 🔄 Fetch all reports from Supabase */
   const fetchReports = useCallback(async () => {
-      setIsLoading(true);
-      setError(null);
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/reports?select=*`, {
-          headers: restHeaders(),
-        });
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/reports?select=*`, {
+        headers: restHeaders(),
+      });
 
-        if (!res.ok) {
-          const text = await res.text();
-          const err = new Error(`Fetch failed: ${res.status} ${text}`) as FetchError;
-          err.status = res.status;
-          err.statusText = res.statusText;
-          throw err;
-        }
-
-        const data = await res.json();
-        const reportsWithLocation = await Promise.all(
-          (Array.isArray(data) ? data : []).map(processLocation)
-        );
-
-        setReports(reportsWithLocation);
-      } catch (err) {
-        console.error("Failed to load reports:", err);
-        setError(err as Error);
-      } finally {
-        setIsLoading(false);
+      if (!res.ok) {
+        const text = await res.text();
+        const err = new Error(`Fetch failed: ${res.status} ${text}`) as FetchError;
+        err.status = res.status;
+        err.statusText = res.statusText;
+        throw err;
       }
+
+      const data = await res.json();
+      const reportsWithLocation = await Promise.all(
+        (Array.isArray(data) ? data : []).map(processLocation)
+      );
+
+      setReports(reportsWithLocation);
+    } catch (err) {
+      console.error("Failed to load reports:", err);
+      setError(err as Error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [processLocation]);
 
   useEffect(() => {
@@ -128,17 +130,17 @@ const HomeTau: React.FC = () => {
     let result = [...reports];
 
     // Search
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(
-        (r) =>
-          r.title.toLowerCase().includes(term) ||
-          r.description.toLowerCase().includes(term) ||
-          r.locationText?.toLowerCase().includes(term) ||
-          r.type?.toLowerCase().includes(term) ||
-          r.category?.toLowerCase().includes(term)
-      );
-    }
+    // if (searchTerm) {
+    //   const term = searchTerm.toLowerCase();
+    //   result = result.filter(
+    //     (r) =>
+    //       r.title.toLowerCase().includes(term) ||
+    //       r.description.toLowerCase().includes(term) ||
+    //       r.locationText?.toLowerCase().includes(term) ||
+    //       r.type?.toLowerCase().includes(term) ||
+    //       r.category?.toLowerCase().includes(term)
+    //   );
+    // }
 
     // Filter by status
     if (statusFilter) result = result.filter((r) => r.status === statusFilter);
@@ -154,10 +156,10 @@ const HomeTau: React.FC = () => {
         result.sort((a, b) => (a.status || "").localeCompare(b.status || ""));
         break;
       case "severity": {
-        const severityOrder: Record<ReportSeverity, number> = { 
-          high: 0, 
-          medium: 1, 
-          low: 2 
+        const severityOrder: Record<ReportSeverity, number> = {
+          high: 0,
+          medium: 1,
+          low: 2
         };
         result.sort((a, b) => {
           const aOrder = a.severity && a.severity in severityOrder ? severityOrder[a.severity] : 3;
@@ -173,7 +175,7 @@ const HomeTau: React.FC = () => {
     }
 
     setFilteredReports(result);
-  }, [reports, searchTerm, statusFilter, sortBy]);
+  }, [reports, statusFilter, sortBy]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -191,6 +193,12 @@ const HomeTau: React.FC = () => {
         >
           Report Waste Issue
         </button>
+        <button
+          onClick={openAIChat}
+          className="ml-4 bg-transparent border-2 border-white text-white font-semibold py-3 px-8 rounded-lg hover:bg-white/10 transition"
+        >
+          Ask CleanCalBot
+        </button>
       </div>
 
       {/* 🧾 Reports Section */}
@@ -206,13 +214,6 @@ const HomeTau: React.FC = () => {
             >
               Refresh
             </button>
-            <input
-              type="text"
-              placeholder="Search reports..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:outline-none"
-            />
 
             <select
               value={statusFilter}
@@ -238,6 +239,35 @@ const HomeTau: React.FC = () => {
             </select>
           </div>
         </div>
+
+        {/* 📊 AI Analytics Result */}
+        {analyticsResult && (
+          <div className="mb-8 bg-purple-50 border border-purple-200 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-purple-100 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-purple-600">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-lg font-bold text-purple-900">AI Waste Analytics Report</h3>
+                  <button
+                    onClick={() => setAnalyticsResult(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="prose prose-purple max-w-none text-gray-700 whitespace-pre-line">
+                  {analyticsResult}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 🌀 Loading, Error, or Reports */}
         {isLoading ? (

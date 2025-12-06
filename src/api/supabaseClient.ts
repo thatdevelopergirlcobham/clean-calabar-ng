@@ -53,12 +53,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   global: {
     headers: {
       'x-client-info': 'supabase-js-web'
-    },
-    fetch: (url, options = {}) => {
-      return fetch(url, {
-        ...options,
-        signal: AbortSignal.timeout(60000) // 60 second timeout
-      })
     }
   }
 })
@@ -265,6 +259,65 @@ export type Database = {
           type?: 'report_approved' | 'report_rejected' | 'report_submitted' | 'system' | 'ai_insight'
           read?: boolean
           data?: Record<string, unknown>
+          created_at?: string
+          updated_at?: string
+        }
+      },
+      service_requests: {
+        Row: {
+          id: string
+          user_id: string
+          service_type: 'cleaning' | 'waste_pickup'
+          location: Json
+          service_date: string
+          service_time: string
+          urgency: 'standard' | 'urgent'
+          description: string
+          images: string[]
+          contact_phone: string
+          contact_email: string
+          notes: string
+          space_size?: string | null
+          waste_size?: string | null
+          status: 'pending' | 'approved' | 'rejected' | 'resolved' | 'completed'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          service_type: 'cleaning' | 'waste_pickup'
+          location: Json
+          service_date: string
+          service_time: string
+          urgency: 'standard' | 'urgent'
+          description: string
+          images?: string[]
+          contact_phone: string
+          contact_email: string
+          notes?: string
+          space_size?: string | null
+          waste_size?: string | null
+          status?: 'pending' | 'approved' | 'rejected' | 'resolved' | 'completed'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          service_type?: 'cleaning' | 'waste_pickup'
+          location?: Json
+          service_date?: string
+          service_time?: string
+          urgency?: 'standard' | 'urgent'
+          description?: string
+          images?: string[]
+          contact_phone?: string
+          contact_email?: string
+          notes?: string
+          space_size?: string | null
+          waste_size?: string | null
+          status?: 'pending' | 'approved' | 'rejected' | 'resolved' | 'completed'
           created_at?: string
           updated_at?: string
         }

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { LogOut, User, Home, LogIn, UserPlus, FileText } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   const { user } = useAuth();
@@ -32,16 +31,19 @@ const Navbar: React.FC = () => {
             {user ? (
               <div className="hidden md:flex items-center space-x-8">
                 <Link to="/home" className="text-white hover:text-lime-300 flex items-center transition-colors">
-                  <Home className="w-5 h-5 mr-1" /> Home
+                  Home
                 </Link>
                 <Link to="/my-reports" className="text-white hover:text-lime-300 flex items-center transition-colors">
-                  <FileText className="w-5 h-5 mr-1" /> My Reports
+                  My Reports
                 </Link>
                 <Link to="/reports-map" className="text-white hover:text-lime-300 flex items-center transition-colors">
-                  <span className="w-5 h-5 mr-1">🗺️</span> Report Map
+                  Report Map
                 </Link>
                 <Link to="/recyclables" className="text-white hover:text-lime-300 flex items-center transition-colors">
-                  <span className="w-5 h-5 mr-1">♻️</span> Hire Cleaners
+                  Recyclables
+                </Link>
+                <Link to="/hire-cleaners" className="text-white hover:text-lime-300 flex items-center transition-colors">
+                  Hire Cleaners
                 </Link>
               </div>
             ) : (
@@ -81,21 +83,21 @@ const Navbar: React.FC = () => {
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 items-center"
                       onClick={() => setIsDropdownOpen(false)}
                     >
-                      <User className="w-4 h-4 mr-2" /> My Profile
+                      My Profile
                     </Link>
                     <Link
                       to="/my-reports"
-                      className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 items-center"
                       onClick={() => setIsDropdownOpen(false)}
                     >
-                      <FileText className="w-4 h-4 mr-2" /> My Reports
+                      My Reports
                     </Link>
                     <button
                       type="button"
                       onClick={handleSignOut}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                     >
-                      <LogOut className="w-4 h-4 mr-2" /> Sign Out
+                      Sign Out
                     </button>
                   </div>
                 )}
@@ -106,13 +108,13 @@ const Navbar: React.FC = () => {
                   to="/auth"
                   className="px-4 py-2 text-white hover:text-lime-300 flex items-center"
                 >
-                  <LogIn className="w-4 h-4 mr-1" /> Sign In
+                  Sign In
                 </Link>
                 <Link
                   to="/auth?mode=signup"
                   className="px-4 py-2 bg-lime-500 text-white rounded-full hover:bg-lime-600 transition flex items-center"
                 >
-                  <UserPlus className="w-4 h-4 mr-1" /> Register
+                  Register
                 </Link>
               </div>
             )}

@@ -49,29 +49,52 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
     }
 
     setIsLoading(true)
-    
+
     try {
-      // Using Nominatim (OpenStreetMap) API - free and no API key required
-      // Focusing on Nigeria (Calabar region) by adding countrycodes=ng
+
+      // Using Photon API (by Komoot) - based on OSM but more permissive for client-side usage
+      // Focusing on Nigeria (lat/lon roughly) or just using query bias if possible, 
+      // but Photon supports 'lat' and 'lon' for bias, or we can just search globally and filter.
+      // For simplicity, we'll just search.
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?` +
+        `https://photon.komoot.io/api/?` +
         `q=${encodeURIComponent(query)}&` +
-        `format=json&` +
-        `addressdetails=1&` +
         `limit=5&` +
-        `countrycodes=ng`,
+        `lang=en`,
         {
           headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'CleanCal-App' // Required by Nominatim
+            'Accept': 'application/json'
           }
         }
       )
 
       if (!response.ok) throw new Error('Failed to fetch suggestions')
 
-      const data: LocationSuggestion[] = await response.json()
-      setSuggestions(data)
+      const data = await response.json()
+
+      // Transform Photon (GeoJSON) to our format
+      const suggestions: LocationSuggestion[] = data.features.map((feature: any) => {
+        const { name, city, state, country, street } = feature.properties;
+        const [lon, lat] = feature.geometry.coordinates;
+
+        // Construct a display name similar to Nominatim
+        const parts = [name, street, city, state, country].filter(Boolean);
+        const displayName = parts.join(', ');
+
+        return {
+          place_id: String(feature.properties.osm_id || Math.random()),
+          display_name: displayName,
+          lat: String(lat),
+          lon: String(lon),
+          address: {
+            city: city || name,
+            state,
+            country
+          }
+        };
+      });
+
+      setSuggestions(suggestions)
       setShowDropdown(true)
     } catch (error) {
       console.error('Error fetching location suggestions:', error)
@@ -125,7 +148,7 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setSelectedIndex(prev => 
+        setSelectedIndex(prev =>
           prev < suggestions.length - 1 ? prev + 1 : prev
         )
         break
@@ -179,7 +202,7 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
     <div className="relative">
       <div className="relative">
         <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-        
+
         <input
           ref={inputRef}
           type="text"
@@ -212,9 +235,8 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
               key={suggestion.place_id}
               type="button"
               onClick={() => handleSelectSuggestion(suggestion)}
-              className={`w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 ${
-                index === selectedIndex ? 'bg-blue-50' : ''
-              }`}
+              className={`w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 ${index === selectedIndex ? 'bg-blue-50' : ''
+                }`}
             >
               <div className="flex items-start">
                 <MapPin className="w-4 h-4 text-blue-500 mt-1 mr-2 flex-shrink-0" />

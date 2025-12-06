@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import {
     MapPinIcon,
     CalendarIcon,
@@ -12,6 +11,7 @@ import type { Recyclable } from '../../types/recyclable';
 
 interface RecyclableCardProps {
     recyclable: Recyclable;
+    onClick?: () => void;
 }
 
 const getCategoryColor = (category: string) => {
@@ -54,11 +54,14 @@ const formatDate = (dateStr: string) => {
     }
 };
 
-const RecyclableCard: React.FC<RecyclableCardProps> = ({ recyclable }) => {
+const RecyclableCard: React.FC<RecyclableCardProps> = ({ recyclable, onClick }) => {
     const totalPrice = recyclable.total_price || recyclable.quantity * recyclable.price_per_unit;
 
     return (
-        <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+        <div
+            className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
+            onClick={onClick}
+        >
             {/* Image Section */}
             <div className="relative h-56 overflow-hidden">
                 <img
@@ -171,15 +174,19 @@ const RecyclableCard: React.FC<RecyclableCardProps> = ({ recyclable }) => {
                 )}
 
                 {/* View Details Button */}
-                <Link
-                    to={`/recyclables/${recyclable.id}`}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onClick?.();
+                    }}
                     className="block w-full text-center py-2.5 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
                 >
                     View Details
-                </Link>
+                </button>
             </div>
         </div>
     );
 };
+
 
 export default RecyclableCard;

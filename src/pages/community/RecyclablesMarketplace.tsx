@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../hooks/useToast';
 import { getRecyclables, createRecyclable, subscribeToRecyclables } from '../../api/recyclables';
 import RecyclableCard from '../../components/community/RecyclableCard';
 import RecyclableModal from '../../components/community/RecyclableModal';
+import RecyclableDetail from '../../components/community/RecyclableDetail';
 import type { Recyclable, CreateRecyclableInput, RecyclableCategory } from '../../types/recyclable';
 import {
     FunnelIcon,
@@ -20,6 +22,7 @@ const RecyclablesMarketplace: React.FC = () => {
     const [error, setError] = useState<Error | null>(null);
     const [showModal, setShowModal] = useState(false);
     const [reloadTick, setReloadTick] = useState(0);
+    const [selectedRecyclable, setSelectedRecyclable] = useState<Recyclable | null>(null);
 
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
@@ -28,8 +31,8 @@ const RecyclablesMarketplace: React.FC = () => {
     const [sortBy, setSortBy] = useState('newest');
 
     // Fetch recyclables
-    const fetchRecyclables = useCallback(async () => {
-        setIsLoading(true);
+    const fetchRecyclables = useCallback(async (background = false) => {
+        if (!background) setIsLoading(true);
         setError(null);
 
         try {
@@ -39,7 +42,7 @@ const RecyclablesMarketplace: React.FC = () => {
             console.error('Failed to load recyclables:', err);
             setError(err as Error);
         } finally {
-            setIsLoading(false);
+            if (!background) setIsLoading(false);
         }
     }, []);
 
@@ -48,7 +51,8 @@ const RecyclablesMarketplace: React.FC = () => {
 
         // Subscribe to real-time updates
         const subscription = subscribeToRecyclables(() => {
-            fetchRecyclables();
+            console.log('Recyclables update received');
+            fetchRecyclables(true); // Fetch in background
         });
 
         return () => {
@@ -107,6 +111,8 @@ const RecyclablesMarketplace: React.FC = () => {
         setFilteredRecyclables(result);
     }, [recyclables, searchTerm, categoryFilter, statusFilter, sortBy]);
 
+    const { addToast } = useToast();
+
     // Handle create listing
     const handleCreateListing = async (data: CreateRecyclableInput) => {
         if (!user) {
@@ -114,9 +120,24 @@ const RecyclablesMarketplace: React.FC = () => {
             return;
         }
 
-        await createRecyclable(user.id, data);
-        setShowModal(false);
-        fetchRecyclables();
+        try {
+            const newRecyclable = await createRecyclable(user.id, data);
+            setRecyclables((prev) => [newRecyclable, ...prev]);
+            setShowModal(false);
+            addToast({
+                type: 'success',
+                title: 'Listing Created',
+                message: 'Your recyclable has been listed successfully!',
+            });
+            fetchRecyclables(true); // Fetch in background to ensure consistency
+        } catch (error) {
+            console.error('Failed to create listing:', error);
+            addToast({
+                type: 'error',
+                title: 'Error',
+                message: 'Failed to create listing. Please try again.',
+            });
+        }
     };
 
     // Statistics
@@ -152,7 +173,7 @@ const RecyclablesMarketplace: React.FC = () => {
             </div>
 
             {/* Stats Section */}
-            <div className="max-w-6xl mx-auto px-4 -mt-8">
+            <div className="max-w-6xl mx-auto px-4 -mt-8 relative z-10">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-white rounded-xl shadow-lg p-6 text-center">
                         <p className="text-gray-600 text-sm mb-1">Total Listings</p>
@@ -169,111 +190,127 @@ const RecyclablesMarketplace: React.FC = () => {
                 </div>
             </div>
 
-            {/* Filters Section */}
-            <div className="max-w-6xl mx-auto px-4 py-8">
-                <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-                    <div className="flex flex-col lg:flex-row gap-4">
-                        {/* Search */}
-                        <div className="flex-1 relative">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search recyclables..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:outline-none"
-                            />
-                        </div>
-
-                        {/* Category Filter */}
-                        <select
-                            value={categoryFilter}
-                            onChange={(e) => setCategoryFilter(e.target.value as RecyclableCategory | '')}
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:outline-none"
-                        >
-                            <option value="">All Categories</option>
-                            <option value="plastic">Plastic</option>
-                            <option value="glass">Glass</option>
-                            <option value="metal">Metal</option>
-                            <option value="paper">Paper</option>
-                            <option value="cardboard">Cardboard</option>
-                            <option value="other">Other</option>
-                        </select>
-
-                        {/* Status Filter */}
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:outline-none"
-                        >
-                            <option value="">All Status</option>
-                            <option value="available">Available</option>
-                            <option value="sold">Sold</option>
-                            <option value="reserved">Reserved</option>
-                        </select>
-
-                        {/* Sort */}
-                        <select
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value)}
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:outline-none"
-                        >
-                            <option value="newest">Newest First</option>
-                            <option value="oldest">Oldest First</option>
-                            <option value="price_low">Price: Low to High</option>
-                            <option value="price_high">Price: High to Low</option>
-                            <option value="quantity">Quantity: High to Low</option>
-                        </select>
-
-                        {/* Refresh Button */}
-                        <button
-                            onClick={() => setReloadTick((t) => t + 1)}
-                            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                            title="Refresh"
-                        >
-                            <ArrowPathIcon className="w-5 h-5 text-gray-600" />
-                        </button>
-                    </div>
+            {selectedRecyclable ? (
+                // Detail View
+                <div className="max-w-5xl mx-auto px-4 py-8">
+                    <RecyclableDetail
+                        recyclable={selectedRecyclable}
+                        onBack={() => setSelectedRecyclable(null)}
+                    />
                 </div>
+            ) : (
+                // List View
+                <div className="max-w-6xl mx-auto px-4 py-8">
+                    {/* Filters Section */}
+                    <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+                        <div className="flex flex-col lg:flex-row gap-4">
+                            {/* Search */}
+                            <div className="flex-1 relative">
+                                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search recyclables..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:outline-none"
+                                />
+                            </div>
 
-                {/* Listings Grid */}
-                {isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-600"></div>
-                        <p className="text-gray-600">Loading recyclables...</p>
-                    </div>
-                ) : error ? (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg">
-                        <strong className="font-bold">Error:</strong>{' '}
-                        <span>{error.message || 'Failed to load recyclables'}</span>
-                    </div>
-                ) : filteredRecyclables.length === 0 ? (
-                    <div className="text-center py-20">
-                        <div className="mx-auto w-24 h-24 text-gray-400 mb-4">
-                            <FunnelIcon />
+                            {/* Category Filter */}
+                            <select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value as RecyclableCategory | '')}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:outline-none"
+                            >
+                                <option value="">All Categories</option>
+                                <option value="plastic">Plastic</option>
+                                <option value="glass">Glass</option>
+                                <option value="metal">Metal</option>
+                                <option value="paper">Paper</option>
+                                <option value="cardboard">Cardboard</option>
+                                <option value="other">Other</option>
+                            </select>
+
+                            {/* Status Filter */}
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:outline-none"
+                            >
+                                <option value="">All Status</option>
+                                <option value="available">Available</option>
+                                <option value="sold">Sold</option>
+                                <option value="reserved">Reserved</option>
+                            </select>
+
+                            {/* Sort */}
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:outline-none"
+                            >
+                                <option value="newest">Newest First</option>
+                                <option value="oldest">Oldest First</option>
+                                <option value="price_low">Price: Low to High</option>
+                                <option value="price_high">Price: High to Low</option>
+                                <option value="quantity">Quantity: High to Low</option>
+                            </select>
+
+                            {/* Refresh Button */}
+                            <button
+                                onClick={() => setReloadTick((t) => t + 1)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                                title="Refresh"
+                            >
+                                <ArrowPathIcon className="w-5 h-5 text-gray-600" />
+                            </button>
                         </div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No recyclables found</h3>
-                        <p className="text-gray-500 mb-6">
-                            {searchTerm || categoryFilter || statusFilter
-                                ? 'Try adjusting your filters'
-                                : 'Be the first to list recyclables for sale!'}
-                        </p>
-                        <button
-                            onClick={() => setShowModal(true)}
-                            className="inline-flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition"
-                        >
-                            <PlusIcon className="w-5 h-5" />
-                            Create First Listing
-                        </button>
                     </div>
-                ) : (
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {filteredRecyclables.map((recyclable) => (
-                            <RecyclableCard key={recyclable.id} recyclable={recyclable} />
-                        ))}
-                    </div>
-                )}
-            </div>
+
+                    {/* Listings Grid */}
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-600"></div>
+                            <p className="text-gray-600">Loading recyclables...</p>
+                        </div>
+                    ) : error ? (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg">
+                            <strong className="font-bold">Error:</strong>{' '}
+                            <span>{error.message || 'Failed to load recyclables'}</span>
+                        </div>
+                    ) : filteredRecyclables.length === 0 ? (
+                        <div className="text-center py-20">
+                            <div className="mx-auto w-24 h-24 text-gray-400 mb-4">
+                                <FunnelIcon />
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">No recyclables found</h3>
+                            <p className="text-gray-500 mb-6">
+                                {searchTerm || categoryFilter || statusFilter
+                                    ? 'Try adjusting your filters'
+                                    : 'Be the first to list recyclables for sale!'}
+                            </p>
+                            <button
+                                onClick={() => setShowModal(true)}
+                                className="inline-flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition"
+                            >
+                                <PlusIcon className="w-5 h-5" />
+                                Create First Listing
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                            {filteredRecyclables.map((recyclable) => (
+                                <RecyclableCard
+                                    key={recyclable.id}
+                                    recyclable={recyclable}
+                                    onClick={() => setSelectedRecyclable(recyclable)}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
 
             {/* Modal */}
             {showModal && (

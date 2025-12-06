@@ -3,12 +3,16 @@ import { X, Image as ImageIcon } from 'lucide-react'
 
 interface ImageUploaderProps {
   onImageUpload: (url: string) => void
+  onUploadStart?: () => void
+  onUploadEnd?: () => void
   currentImage?: string
   className?: string
 }
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({
   onImageUpload,
+  onUploadStart,
+  onUploadEnd,
   currentImage,
   className = '',
 }) => {
@@ -21,6 +25,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     if (!file) return
 
     // Validate file type
+    
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file')
       return
@@ -33,6 +38,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
 
     setUploading(true)
+    onUploadStart?.()
 
     try {
       // Create FormData for Cloudinary upload
@@ -63,6 +69,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       alert('Failed to upload image. Please try again.')
     } finally {
       setUploading(false)
+      onUploadEnd?.()
     }
   }
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { aiApi } from '../api/ai'
 import type { AIInsight, EcoBotRequest } from '../api/ai'
 import { AIContext } from './AIContext.types';
+import type { AIMode } from './AIContext.types';
 import { useAuth } from '../hooks/useAuth'
 import { aiChatService } from '../api/aiChatService'
 
@@ -16,12 +17,18 @@ export const AIProvider: React.FC<AIProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null)
   const { user } = useAuth()
 
+  const [aiMode, setAIMode] = useState<AIMode>('normal')
+
   const toggleAIChat = () => {
     if (!isAIChatOpen && currentInsights.length === 0) {
       // Show welcome message when opening chat for the first time
+      const welcomeMsg = aiMode === 'upcycle'
+        ? "Hi! I'm CleanCal Bot's Upcycling Expert! 🎨 I can help you turn trash into treasure. What material do you want to upcycle today?"
+        : "Hi! I'm CleanCal Bot 🤖, your waste management assistant. I can help with recycling tips, reporting issues, and keeping Calabar clean. How can I help?";
+
       setCurrentInsights([{
         type: 'eco_tip',
-        content: "Hi! I'm EcoBot, your AI assistant for waste management in Calabar. I can help you with recycling tips, waste sorting, proper disposal methods, and community events. What would you like to know?",
+        content: welcomeMsg,
         confidence: 1.0
       }])
     }
@@ -39,18 +46,22 @@ export const AIProvider: React.FC<AIProviderProps> = ({ children }) => {
       return []
     }
   }
-  
+
   const openAIChat = () => {
     if (currentInsights.length === 0) {
+      const welcomeMsg = aiMode === 'upcycle'
+        ? "Hi! I'm CleanCal Bot's Upcycling Expert! 🎨 I can help you turn trash into treasure. What material do you want to upcycle today?"
+        : "Hi! I'm CleanCal Bot 🤖, your waste management assistant. I can help with recycling tips, reporting issues, and keeping Calabar clean. How can I help?";
+
       setCurrentInsights([{
         type: 'eco_tip',
-        content: "Hi! I'm EcoBot, your AI assistant for waste management in Calabar. I can help you with recycling tips, waste sorting, proper disposal methods, and community events. What would you like to know?",
+        content: welcomeMsg,
         confidence: 1.0
       }])
     }
     setIsAIChatOpen(true)
   }
-  
+
   const closeAIChat = () => setIsAIChatOpen(false)
 
   const getInsights = async (request: EcoBotRequest) => {
@@ -87,7 +98,7 @@ export const AIProvider: React.FC<AIProviderProps> = ({ children }) => {
         default:
           insights = [{
             type: 'eco_tip',
-            content: 'Hello! I\'m EcoBot, your AI assistant for waste management. I can help with eco tips, report insights, event suggestions, and more!',
+            content: 'Hello! I\'m CleanCal Bot. I can help with eco tips, report insights, event suggestions, and more!',
             confidence: 0.9
           }]
           break
@@ -112,29 +123,14 @@ export const AIProvider: React.FC<AIProviderProps> = ({ children }) => {
         try { await aiChatService.appendMessage(user.id, 'user', message) } catch (e) { console.warn('Persist user msg failed', e) }
       }
 
-      // 2) Try primary endpoint: cleancal-ai
-      let botResponse: string | null = null
-      try {
-        const resp = await fetch('https://cleancal-ai.vercel.app/ask-agent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: message }),
-        })
-        if (resp.ok) {
-          const data = await resp.json()
-          botResponse = (data?.response ?? '').toString()
-        } else {
-          const txt = await resp.text()
-          console.warn('AI endpoint error', resp.status, txt)
-        }
-      } catch (e) {
-        console.warn('AI endpoint fetch failed, falling back to Gemini', e)
-      }
+      // 2) Try primary endpoint: cleancal-ai (Only for normal mode for now, or update endpoint to support modes)
+      // For now, let's use our local Gemini implementation for full control over modes
+      let botResponse: string | null = null;
 
-      // 3) Fallback to Gemini service if needed
-      if (!botResponse || botResponse.trim().length === 0) {
-        botResponse = await aiApi.chatWithEcoBot(message)
-      }
+      // Skip external endpoint if in upcycle mode or if we want to force our new logic
+      // To strictly follow the user's request for "CleanCal Bot" and "Upcycle" modes, we'll use our local API wrapper primarily.
+
+      botResponse = await aiApi.chatWithCleanCalBot(message, aiMode)
 
       // Convert the response to an AIInsight format
       const responseInsight: AIInsight = {
@@ -155,7 +151,7 @@ export const AIProvider: React.FC<AIProviderProps> = ({ children }) => {
       const errorMessage = error.message || 'Failed to send message. Please try again.'
       setError(errorMessage)
       console.error('AI Send Message Error:', err)
-      
+
       // Show error message in chat
       const errorInsight: AIInsight = {
         type: 'eco_tip',
@@ -178,6 +174,8 @@ export const AIProvider: React.FC<AIProviderProps> = ({ children }) => {
     currentInsights,
     isLoading,
     error,
+    aiMode,
+    setAIMode,
     toggleAIChat,
     openAIChat,
     closeAIChat,
